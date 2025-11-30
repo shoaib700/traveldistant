@@ -1,27 +1,35 @@
 import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' }, { code: 'fr', label: 'Français' }, { code: 'es', label: 'Español' }, { code: 'de', label: 'Deutsch' }
-];
-const COUNTRIES = [
-  { code: 'GB', label: 'United Kingdom', flag: "🇬🇧" }, { code: 'US', label: 'United States', flag: "🇺🇸" }, { code: 'PK', label: 'Pakistan', flag: "🇵🇰" }
-];
-const CURRENCIES = [
-  { code: "GBP", symbol: "£" }, { code: "USD", symbol: "$" }, { code: "EUR", symbol: "€" }, { code: "PKR", symbol: "₨" }
-];
+// --- Language, Country, Currency, and IATA lookup ---
+const LANGUAGES = [ { code: 'en', label: 'English' },{ code: 'fr', label: 'Français' },{ code: 'es', label: 'Español' }];
+const COUNTRIES = [ { code: 'GB', label: 'United Kingdom', flag: "🇬🇧" }, { code: 'US', label: 'United States', flag: "🇺🇸" }, { code: 'PK', label: 'Pakistan', flag: "🇵🇰" }];
+const CURRENCIES = [ { code: "GBP", symbol: "£" }, { code: "USD", symbol: "$" }, { code: "EUR", symbol: "€" }, { code: "PKR", symbol: "₨" } ];
 const countryToCurrency = { GB: "GBP", US: "USD", PK: "PKR" };
 
+// IATA minimal list for demo/autocomplete
+const IATA_CITIES = [
+  { name: "London", code: "LON" },
+  { name: "Dubai", code: "DXB" },
+  { name: "Lahore", code: "LHE" },
+  { name: "Rome", code: "ROM" },
+  { name: "Malaga", code: "AGP" },
+  { name: "Manchester", code: "MAN" },
+  { name: "Paris", code: "PAR" },
+  // ... expand with more for production
+];
+
 const TABS = [
-  { key: "flights",     label: "Flights"     },
-  { key: "hotels",      label: "Hotels"      },
-  { key: "car",         label: "Car Rental"  },
-  { key: "things",      label: "Things to Do"}
+  { key: "flights", label: "Flights"},
+  { key: "hotels", label: "Hotels"},
+  { key: "car", label: "Car Rental"},
+  { key: "things", label: "Things to Do"},
+  { key: "blog", label: "Blog"}
 ];
 const TAB_AFFILIATES = {
   flights: [
     { name: "Skyscanner", url: "https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID", color: "#1776da" },
-    { name: "Expedia",    url: "https://www.expedia.com/", color: "#fcb900", fontColor: "#222" }
+    { name: "Expedia", url: "https://www.expedia.com/", color: "#fcb900", fontColor: "#222" }
   ],
   hotels: [
     { name: "Booking.com", url: "https://www.booking.com/index.html?aid=YOUR_BOOKING_AID", color: "#023580" },
@@ -96,7 +104,6 @@ function getBestDeal(tab) {
 }
 
 export default function Home() {
-  // Locale state and setup
   const [lang, setLang] = useState('en');
   const [country, setCountry] = useState('GB');
   const [currency, setCurrency] = useState('GBP');
@@ -104,15 +111,13 @@ export default function Home() {
     let browserLang = navigator.language || navigator.userLanguage || "en";
     if (browserLang.includes('-')) browserLang = browserLang.split('-')[0];
     if (LANGUAGES.some(l => l.code === browserLang)) setLang(browserLang);
-    fetch('https://ipapi.co/json')
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.country && COUNTRIES.some(c => c.code === data.country)) {
-          setCountry(data.country);
-          const mapped = countryToCurrency[data.country];
-          if (mapped && CURRENCIES.some(c => c.code === mapped)) setCurrency(mapped);
-        }
-      });
+    fetch('https://ipapi.co/json').then(r => r.json()).then(data => {
+      if (data && data.country && COUNTRIES.some(c => c.code === data.country)) {
+        setCountry(data.country);
+        const mapped = countryToCurrency[data.country];
+        if (mapped && CURRENCIES.some(c => c.code === mapped)) setCurrency(mapped);
+      }
+    });
   }, []);
   function handleCountryChange(e) {
     const newCountry = e.target.value; setCountry(newCountry);
@@ -120,69 +125,76 @@ export default function Home() {
     if (mapped && CURRENCIES.some(c => c.code === mapped)) setCurrency(mapped);
   }
 
-  // Tab state
+  // --- Search, tab, help/blog ---
   const [tab, setTab] = useState("flights");
+  // Help modal
+  const [helpOpen, setHelpOpen] = useState(false);
 
-  // Flights search/voice demo
+  // --- Flights: IATA search fields, AI mic, auto-suggest
   const [flightType, setFlightType] = useState("return");
   const [segments, setSegments] = useState([{ from: "", to: "", depart: "" }]);
   const [ret, setRet] = useState("");
+  const [fromSuggest, setFromSuggest] = useState([]);
+  const [toSuggest, setToSuggest] = useState([]);
+  const [focusInput, setFocusInput] = useState('');
   const [listening, setListening] = useState(false);
   const recRef = useRef();
+
+  // Autocomplete (IATA)
+  useEffect(() => {
+    if (focusInput === "from" && segments[0].from.length > 0) setFromSuggest(IATA_CITIES.filter(c => c.name.toLowerCase().startsWith(segments[0].from.toLowerCase())));
+    else setFromSuggest([]);
+    if (focusInput === "to" && segments[0].to.length > 0) setToSuggest(IATA_CITIES.filter(c => c.name.toLowerCase().startsWith(segments[0].toLowerCase())));
+    else setToSuggest([]);
+  }, [segments, focusInput]);
+
+  function setSegment(idx, field, val) {
+    setSegments(segments.map((s,i)=>i===idx?{ ...s, [field]: val }:s));
+  }
+  function addSegment() { setSegments([...segments, { from: "", to: "", depart: "" }]); }
+  function removeSegment(idx) { if(segments.length<=1)return; setSegments(segments.filter((_,i)=>i!==idx)); }
   function speechToFields() {
-    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-      alert("Voice Input not supported in this browser.");
-      return;
-    }
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) { alert("Voice Input not supported in this browser."); return; }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recog = new Recognition();
-    recog.lang = lang;
+    const recog = new Recognition(); recog.lang = lang;
     recog.onstart = () => setListening(true);
     recog.onend = () => setListening(false);
     recog.onresult = e => {
-      setListening(false);
-      const text = e.results[0][0].transcript;
+      setListening(false); const text = e.results[0][0].transcript;
       const fMatch = /(from)\s+([a-zA-Z ]+)\s+(to)\s+([a-zA-Z ]+)\s+(on)\s+([\w- ]+)/i.exec(text);
       if(fMatch) {
-        setSegments([{ from: fMatch[2].trim().toUpperCase(), to: fMatch[4].trim().toUpperCase(), depart: formatDateInput(fMatch[6]) }]);
+        const from = findIATA(fMatch[2]);
+        const to = findIATA(fMatch[4]);
+        setSegments([{ from: from, to: to, depart: formatDateInput(fMatch[6]) }]);
       }
     };
     recog.start();
     recRef.current = recog;
   }
+  function findIATA(cityName) {
+    let city = IATA_CITIES.find(c=>c.name.toLowerCase()===cityName.trim().toLowerCase());
+    return city ? city.code : cityName.toUpperCase();
+  }
   function formatDateInput(txt) {
     const d = new Date(txt); if (!isNaN(d)) return d.toISOString().slice(0,10);
     return new Date().toISOString().slice(0,10);
   }
-  function addSegment() {
-    setSegments([...segments, { from: "", to: "", depart: "" }]);
-  }
-  function removeSegment(idx) { if(segments.length<=1)return; setSegments(segments.filter((_,i)=>i!==idx)); }
-  function setSegment(idx, field, val) {
-    setSegments(segments.map((s,i)=>i===idx?{ ...s, [field]: val }:s));
-  }
   function submit(e) {
     e.preventDefault();
-    if(tab==="flights") {
-      if(flightType==="return") {
-        const { from, to, depart } = segments[0];
-        window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g,"")}/${ret.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
-      } else if(flightType==="oneway") {
-        const { from, to, depart } = segments[0];
-        window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
-      } else if(flightType==="multi") {
-        window.open("https://www.skyscanner.net/transport/flights/multi?associateid=YOUR_SKYSCANNER_ID",'_blank');
-      }
+    const from = segments[0].from.length===3?segments[0].from:findIATA(segments[0].from); // always IATA code
+    const to = segments[0].to.length===3?segments[0].to:findIATA(segments[0].to);
+    if (tab==="flights") {
+      if(flightType==="return") window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${segments[0].depart.replace(/-/g,"")}/${ret.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
+      else if(flightType==="oneway") window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${segments[0].depart.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
+      else if(flightType==="multi") window.open("https://www.skyscanner.net/transport/flights/multi?associateid=YOUR_SKYSCANNER_ID",'_blank');
     }
   }
 
-  // Nav button helper
   function navButton(txt, tabKey) {
     return (
       <button key={tabKey} onClick={()=>setTab(tabKey)} style={{
-        border: "none", background: "none",
-        color: tab === tabKey ? "#fce283" : "#fff", fontWeight: tab === tabKey ? 800 : 500, fontSize: "1.11rem",
-        margin: "0 6px", cursor: "pointer", padding: "4px 10px", borderBottom: tab === tabKey ? "3px solid #fff" : "none"
+        border:"none",background:"none",color:tab===tabKey?"#fce283":"#fff",fontWeight:tab===tabKey?800:500,
+        fontSize:"1.11rem",margin:"0 6px",cursor:"pointer",padding:"4px 10px",borderBottom:tab===tabKey?"3px solid #fff":"none"
       }}>{txt}</button>
     );
   }
@@ -190,16 +202,14 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>TravelDistant | Cheap Flights, Hotels, Cars, Tours</title>
-        <meta name="description" content={`All-in-one travel: compare flights, hotels, car hire, activities. Tabs, auto country/language/currency, voice AI search, live deals feed, best commission!`} />
+        <title>TravelDistant | Cheap Flights, Hotels, Cars, Tours, Blog</title>
+        <meta name="description" content="Travel meta-search: best deals, live blog/ad/affiliate/voice AI, help modal, country/language/currency auto-detect, everything designed for traffic & conversion." />
       </Head>
       <div style={{ background: "#f4f8fc", minHeight: "100vh", width: "100vw", fontFamily: "'Segoe UI',sans-serif" }}>
-        {/* --- NAVBAR --- */}
         <header style={{
           width: "100%", background: "linear-gradient(90deg,#26a8ff 85%,#ff7eb4 100%)", color: "#fff",
           padding: "21px 0 13px 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 700
         }}>
-          {/* Simple SVG logo */}
           <span style={{ marginLeft: "4vw",display:'flex',alignItems:'center',fontWeight:900,fontSize:'1.56rem'}}>
             <svg width="38" height="38" viewBox="0 0 120 120" fill="none" style={{marginRight:10}} xmlns="http://www.w3.org/2000/svg">
               <circle cx="60" cy="60" r="54" stroke="#fff" strokeWidth="11" fill="url(#g1)" />
@@ -217,7 +227,7 @@ export default function Home() {
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
             {TABS.map(t=>navButton(t.label,t.key))}
-            <span style={{ marginLeft: 15 }}>Help</span>
+            <button onClick={()=>setHelpOpen(true)} style={{marginLeft: 15, background:"none",border:"none",color:'#fff',fontWeight:600,fontSize:"1.1rem",cursor:"pointer"}}>Help</button>
             <span style={{ fontSize: "1.1rem", marginLeft: 23 }}>🌐</span>
             <select value={lang} onChange={e => setLang(e.target.value)} style={{ padding: "7px 12px", borderRadius: 6, border: "none", fontWeight: 700, fontSize: "1rem" }}>
               {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
@@ -230,7 +240,27 @@ export default function Home() {
             </select>
           </div>
         </header>
-        {/* --- HERO/banner --- */}
+        {/* --- Help Modal --- */}
+        {helpOpen && (
+          <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.18)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setHelpOpen(false)}>
+            <div style={{background:'#fff',padding:'38px 40px',borderRadius:16,maxWidth:440,width:'100%',boxShadow:'0 2px 22px #abb'}} onClick={e=>e.stopPropagation()}>
+              <h2 style={{marginTop:0}}>Help & FAQ</h2>
+              <ul>
+                <li><b>How do I book?</b> Fill search, hit "Search", and book on the partner site (Skyscanner, Booking, etc).</li>
+                <li><b>Page Not Found?</b> Ensure cities are selected from dropdown (always using IATA codes like DXB).</li>
+                <li><b>Multi-trip doesn't auto-fill on Skyscanner?</b> Use the multi-trip search then fill in on their website (due to partner limitation).</li>
+                <li><b>More questions?</b> Email <a href="mailto:support@traveldistant.com">support@traveldistant.com</a></li>
+              </ul>
+              <button onClick={()=>setHelpOpen(false)} style={{marginTop:14,padding:'8px 18px',fontWeight:700,borderRadius:8,background:'#eee'}}>Close</button>
+            </div>
+          </div>
+        )}
+        {/* --- Blog page --- */}
+        {tab==="blog" && (
+          <iframe src="/blog" style={{border:"none",width:"100%",minHeight:"85vh",background:"transparent"}} title="Blog"></iframe>
+        )}
+        {/* --- HERO/BEST DEAL  --- */}
+        {tab!=="blog" &&
         <div style={{
           width: "100%", background: "linear-gradient(90deg,#ffe6fa 40%,#c5eafb 100%)", boxShadow: "0 8px 32px #d7e7fa"
         }}>
@@ -252,8 +282,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-        {/* --- Search card for Flights only in this example --- */}
-        {tab === "flights" &&
+        }
+        {/* --- Flights Search (for flights tab only) --- */}
+        {tab==="flights" &&
           <main style={{
             maxWidth: 640, margin: "-52px auto 36px auto", background: "#fff", borderRadius: 23, boxShadow: "0 8px 44px #e2eaf6", padding: "38px 2vw 36px 2vw"
           }}>
@@ -270,13 +301,29 @@ export default function Home() {
                 segments.map((seg, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 11, width: "100%" }}>
                     <div style={{position:"relative"}}>
-                      <input required placeholder="From" value={seg.from} onChange={e => setSegment(i, "from", e.target.value.toUpperCase())}
+                      <input required placeholder="From" value={seg.from} onChange={e => setSegment(i, "from", e.target.value)} 
+                        onFocus={()=>setFocusInput("from")} autoComplete="off"
                         style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
                       <button type="button" aria-label="Mic" title="Voice input (AI)" onClick={speechToFields}
                         style={{ position: "absolute", top: 6, right: 4, background: "none", border: "none", fontSize: "1.32rem", color: "#22a6ee", cursor: "pointer" }}>{listening ? "🎤" : "🎙️"}</button>
+                      {fromSuggest.length>0 && focusInput==="from" &&
+                        <div style={{position:"absolute",top:41,left:0,background:"#fff",boxShadow:"0 2px 9px #e5eefe",borderRadius:6}}>
+                          {fromSuggest.map((c,i)=>
+                            <div key={i} style={{padding:"7px 15px",cursor:"pointer"}} onClick={()=>{setSegment(i,'from',c.code);setFromSuggest([]);setFocusInput('');}}>{c.name} – {c.code}</div>
+                          )}
+                        </div>}
                     </div>
-                    <input required placeholder="To" value={seg.to} onChange={e => setSegment(i, "to", e.target.value.toUpperCase())}
-                      style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                    <div style={{position:"relative"}}>
+                      <input required placeholder="To" value={seg.to} onChange={e => setSegment(i, "to", e.target.value)} 
+                        onFocus={()=>setFocusInput("to")} autoComplete="off"
+                        style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                      {toSuggest.length>0 && focusInput==="to" &&
+                        <div style={{position:"absolute",top:41,left:0,background:"#fff",boxShadow:"0 2px 9px #e5eefe",borderRadius:6}}>
+                          {toSuggest.map((c,i)=>
+                            <div key={i} style={{padding:"7px 15px",cursor:"pointer"}} onClick={()=>{setSegment(0,'to',c.code);setToSuggest([]);setFocusInput('');}}>{c.name} – {c.code}</div>
+                          )}
+                        </div>}
+                    </div>
                     <input required type="date" value={seg.depart} onChange={e => setSegment(i, "depart", e.target.value)}
                       style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
                     <button type="button" onClick={() => removeSegment(i)} style={{
@@ -287,13 +334,29 @@ export default function Home() {
                 :
                 <div style={{ display: "flex", gap: 11, width: "100%", marginBottom: flightType === "return" ? '13px' : '0' }}>
                   <div style={{position:"relative",flex:1}}>
-                    <input required placeholder="From" value={segments[0].from} onChange={e => setSegment(0, "from", e.target.value.toUpperCase())}
+                    <input required placeholder="From" value={segments[0].from} onChange={e => setSegment(0, "from", e.target.value)} 
+                      onFocus={()=>setFocusInput("from")} autoComplete="off"
                       style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
                     <button type="button" aria-label="Mic" title="Voice input (AI)" onClick={speechToFields}
                       style={{ position: "absolute", top: 6, right: 4, background: "none", border: "none", fontSize: "1.32rem", color: "#22a6ee", cursor: "pointer" }}>{listening ? "🎤" : "🎙️"}</button>
+                    {fromSuggest.length>0 && focusInput==="from" &&
+                      <div style={{position:"absolute",top:41,left:0,background:"#fff",boxShadow:"0 2px 9px #e5eefe",borderRadius:6}}>
+                        {fromSuggest.map((c,i)=>
+                          <div key={i} style={{padding:"7px 15px",cursor:"pointer"}} onClick={()=>{setSegment(0,'from',c.code);setFromSuggest([]);setFocusInput('');}}>{c.name} – {c.code}</div>
+                        )}
+                      </div>}
                   </div>
-                  <input required placeholder="To" value={segments[0].to} onChange={e => setSegment(0, "to", e.target.value.toUpperCase())}
-                    style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                  <div style={{position:"relative",flex:1}}>
+                    <input required placeholder="To" value={segments[0].to} onChange={e => setSegment(0, "to", e.target.value)} 
+                      onFocus={()=>setFocusInput("to")} autoComplete="off"
+                      style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                    {toSuggest.length>0 && focusInput==="to" &&
+                      <div style={{position:"absolute",top:41,left:0,background:"#fff",boxShadow:"0 2px 9px #e5eefe",borderRadius:6}}>
+                        {toSuggest.map((c,i)=>
+                          <div key={i} style={{padding:"7px 15px",cursor:"pointer"}} onClick={()=>{setSegment(0,'to',c.code);setToSuggest([]);setFocusInput('');}}>{c.name} – {c.code}</div>
+                        )}
+                      </div>}
+                  </div>
                   <input required type="date" value={segments[0].depart} onChange={e => setSegment(0, "depart", e.target.value)}
                     style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
                   {flightType === "return" && <input required type="date" value={ret} onChange={e => setRet(e.target.value)}
@@ -313,6 +376,7 @@ export default function Home() {
           </main>
         }
         {/* --- Deals grid for tab --- */}
+        {tab!=="blog" && (
         <section style={{ maxWidth: 1250, margin: "0 auto", padding: "20px 0 38px 0" }}>
           <h2 style={{textAlign:'center',fontWeight:800,fontSize:'1.55rem',marginBottom:24}}>
             Best <span style={{color:'#ec3099'}}>Deals</span> Right Now
@@ -331,7 +395,9 @@ export default function Home() {
             )}
           </div>
         </section>
+        )}
         {/* --- Affiliates row for current tab --- */}
+        {tab!=="blog" && (
         <div style={{
           display: "flex", gap: 22, flexWrap: "wrap", justifyContent: "center", maxWidth: 930, margin: "8px auto 0"
         }}>
@@ -344,6 +410,7 @@ export default function Home() {
             >{a.name}</a>
           )}
         </div>
+        )}
         <footer style={{ marginTop: 36, textAlign: "center", padding: "32px 8px 18px 8px", fontSize: "1.05rem", color: "#888", background: "#fff", borderTop: "1px solid #ebebeb" }}>
           &copy; {new Date().getFullYear()} Travel in UK Ltd. All rights reserved.
         </footer>

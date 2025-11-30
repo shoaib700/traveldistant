@@ -1,26 +1,26 @@
 import Head from "next/head";
 const ALL_TRAVEL_KEYWORDS = `
-cheap flights, flights to London, hotels Paris, vacation deals, holidays, car rental, travel insurance, city guide, best airline, discount hotel,
-flight deals Dubai, reviews, direct flights, book online, ...[many more]
+cheap flights, last minute flights, direct flights, flights to London, best hotels, hotel in Dubai, holiday deals, car rental, car hire deals, airport shuttle, all inclusive, vacation, city guide, booking tips, reviews, airline offers, train tickets, travel insurance, European breaks, airport transfers, best price guarantee, group travel, business flights, ... // extend
 `;
 
 const AUTO_BLOGS = [
-  {title:"How to Always Find the Cheapest Flights", snippet:"Tips using Skyscanner, Booking, and more...", url:"#"},
-  {title:"Hotel Hacks for 2024", snippet:"Best loyalty tactics, when to book...", url:"#"}
+  {title:"How to Always Find the Cheapest Flights", snippet:"Tips using Skyscanner, Booking.com, Expedia, lastminute.com, and insider hacks...", url:"#"},
+  {title:"14 Hacks for Better Hotel Prices in Dubai", snippet:"Get the deal by booking at the right time and using the right platforms...", url:"#"},
+  {title:"Car Rental: Save Big at the Airport", snippet:"Why you should always use Rentalcars, which upgrades to watch for, and when to book...", url:"#"},
 ];
 
 export default function Blog() {
   return (
     <>
       <Head>
-        <title>TravelDistant Blog | Flight, Hotel & Travel SEO Tips</title>
-        <meta name="description" content="Huge keyword travel blog for SEO: flights, hotels, car hire, last minute, top deals and tips." />
+        <title>TravelDistant Blog | Cheap Flights, Hotels, Travel SEO Tips</title>
+        <meta name="description" content="Travel blog with hundreds of travel keywords: cheap flights, hotels, cars, tips, guides, and reviews to boost SEO & attract visits for every search term." />
         <meta name="keywords" content={ALL_TRAVEL_KEYWORDS} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context":"https://schema.org",
             "@type":"Blog",
-            headline:"TravelDistant: SEO Blog",
+            headline:"TravelDistant: Travel Blog and SEO",
             keywords: ALL_TRAVEL_KEYWORDS.split(",").map(x=>x.trim())
           })
         }}/>
@@ -34,7 +34,7 @@ export default function Blog() {
             <a href={b.url} style={{color:'#3097fa',fontWeight:700}}>Read More</a>
           </div> )}
         <hr/>
-        <div style={{color:'#ad233b',fontSize:"1.06rem",marginTop:22}}>Topics: <span style={{color:'#444'}}>{ALL_TRAVEL_KEYWORDS}</span></div>
+        <div style={{color:'#ad233b',fontSize:"1.06rem",marginTop:22}}>Travel topics: <span style={{color:'#444'}}>{ALL_TRAVEL_KEYWORDS}</span></div>
       </div>
     </>
   );

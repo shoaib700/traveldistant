@@ -1,2 +1,6 @@
-body { background: #f5f6fa; margin: 0; }
-a { color: #1252ce; }
+body { 
+  background: #f4f8fc;
+  margin: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+a { color: #1679d2; }
