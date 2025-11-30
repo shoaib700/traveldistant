@@ -1,299 +1,219 @@
-import { useState } from "react";
 import Head from "next/head";
+import { useState, useRef } from "react";
 
-const BOOKING_AID = "YOUR_BOOKING_AID";          // Booking.com
-const SKYSCANNER_ID = "YOUR_SKYSCANNER_ID";      // Skyscanner
-const EXPEDIA_ID = "";                           // Optional: Expedia Partners
-const RENTALCARS_PARTNER = "YOUR_RENTALCARS_ID"; // Rentalcars.com
-const GETYOURGUIDE_PARTNER = "YOUR_GYG_ID";      // GetYourGuide
-const KLOOK_REF = "YOUR_KLOOK_REF";              // Klook
+const TEQUILA_API_KEY = "YOUR_TEQUILA_API_KEY"; // Get yours at https://tequila.kiwi.com/portal
 
-const todayStr = () => new Date().toISOString().slice(0,10);
-const tomorrowStr = () => {
-  const t = new Date();
-  t.setDate(t.getDate() + 1);
-  return t.toISOString().slice(0, 10);
-};
+// Simple date helpers
+const ymStr = (dt) => dt.toISOString().slice(0,7);
 
 export default function Home() {
-  const [tab, setTab] = useState("flights");
+  const today = new Date(), 
+      tomorrow = new Date(Date.now() + 86400000);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [depart, setDepart] = useState(today.toISOString().slice(0,10));
+  const [calendarMonth, setCalendarMonth] = useState(ymStr(today));
+  const [calendar, setCalendar] = useState([]); // [{date, price}]
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [results, setResults] = useState([]);
+  const [sort, setSort] = useState("recommended"); // recommended|cheapest|fastest|direct
+  const [loading, setLoading] = useState(false);
 
-  // all search form state
-  const [flightFrom, setFlightFrom] = useState("");
-  const [flightTo, setFlightTo] = useState("");
-  const [flightDepart, setFlightDepart] = useState(todayStr());
-  const [flightReturn, setFlightReturn] = useState(tomorrowStr());
-
-  const [hotelPlace, setHotelPlace] = useState("");
-  const [hotelCheckin, setHotelCheckin] = useState(todayStr());
-  const [hotelCheckout, setHotelCheckout] = useState(tomorrowStr());
-
-  const [carLocation, setCarLocation] = useState("");
-  const [carPick, setCarPick] = useState(todayStr());
-  const [carDrop, setCarDrop] = useState(tomorrowStr());
-
-  const [activityPlace, setActivityPlace] = useState("");
-  const [activityDate, setActivityDate] = useState(todayStr());
-
-  // Generic tab config
-  function tabStyle(active) {
-    return {
-      border: "none",
-      borderBottom: active ? "3px solid #037fff" : "1px solid #f2f2f2",
-      background: active ? "#eef6ff" : "#fff",
-      fontWeight: active ? 700 : 500,
-      fontSize: "1.03rem",
-      color: "#037fff",
-      padding: "17px 32px 12px 32px",
-      cursor: "pointer",
-      outline: 0,
-    };
+  // Fetch calendar pricing
+  async function fetchCalendarPrices() {
+    setShowCalendar(true);
+    setCalendar([]); // Reset
+    if (!from || !to || !calendarMonth) return;
+    setLoading(true);
+    // Kiwi: fetch cheapest per each day in month
+    // Use "date_from" as yyyy-mm-01, "date_to" as yyyy-mm-last
+    const [y,m] = calendarMonth.split("-");
+    const lastDay = new Date(+y, +m, 0).getDate();
+    const res = await fetch(`https://tequila-api.kiwi.com/v2/search?fly_from=${from}&fly_to=${to}&date_from=${calendarMonth}-01&date_to=${calendarMonth}-${lastDay}&curr=GBP&limit=31&one_for_city=1&sort=price`, {
+      headers: { apikey: TEQUILA_API_KEY }
+    });
+    const data = await res.json();
+    const dayPrice = {};
+    if (data && data.data) {
+      // For each flight, record min price for that particular day
+      data.data.forEach(f => {
+        const d = f.local_departure.split("T")[0];
+        if (!dayPrice[d] || f.price < dayPrice[d].price) 
+          dayPrice[d] = { date:d, price:f.price };
+      });
+    }
+    // Calendar: [{date, price}]
+    setCalendar(Object.values(dayPrice));
+    setLoading(false);
   }
 
-  // Form handlers (redirect to affiliate with pre-filled fields)
-  function goFlights(e) {
-    e.preventDefault();
-    if (!flightFrom || !flightTo || !flightDepart) return;
-    // Example: Skyscanner affiliate deep link
-    // Docs: https://partners.skyscanner.net/affiliate-tools/tracking-links
-    const url = `https://www.skyscanner.net/transport/flights/${encodeURIComponent(flightFrom)}/${encodeURIComponent(flightTo)}/${flightDepart.replace(/-/g,'')}/${
-      flightReturn ? flightReturn.replace(/-/g,'') : ""
-    }/?associateid=${SKYSCANNER_ID}`;
-    window.open(url, "_blank");
+  // Fetch flights for a specific search
+  async function handleFlightSearch(e) {
+    if (e) e.preventDefault();
+    setResults([]); setLoading(true);
+    const url = `https://tequila-api.kiwi.com/v2/search?fly_from=${from}&fly_to=${to}&dateFrom=${depart}&dateTo=${depart}&curr=GBP&limit=20`;
+    const res = await fetch(url, {
+      headers: { apikey: TEQUILA_API_KEY }
+    });
+    const data = await res.json();
+    setResults(data && data.data ? data.data : []);
+    setLoading(false);
   }
-  function goHotels(e) {
-    e.preventDefault();
-    if (!hotelPlace || !hotelCheckin || !hotelCheckout) return;
-    // Booking.com affiliate deep link
-    let inDate = new Date(hotelCheckin), outDate = new Date(hotelCheckout);
-    const url = `https://www.booking.com/searchresults.html?aid=${BOOKING_AID}&ss=${encodeURIComponent(hotelPlace)
-      }&checkin_year=${inDate.getFullYear()
-      }&checkin_month=${inDate.getMonth()+1
-      }&checkin_monthday=${inDate.getDate()
-      }&checkout_year=${outDate.getFullYear()
-      }&checkout_month=${outDate.getMonth()+1
-      }&checkout_monthday=${outDate.getDate()}`;
-    window.open(url, "_blank");
+
+  // Sorting/filter logic for results
+  const showResults = () => {
+    let res = results.slice();
+    if (sort === "cheapest") res.sort((a,b)=>a.price-b.price);
+    if (sort === "fastest")  res.sort((a,b)=>a.duration.total-b.duration.total);
+    if (sort === "direct")   res = res.filter(f => f.route.length === 1);
+    // "recommended" = default order
+    return res;
+  };
+
+  // Click calendar date to pick date and search
+  function pickDay(d) {
+    setDepart(d); setShowCalendar(false); handleFlightSearch();
   }
-  function goCars(e) {
-    e.preventDefault();
-    if (!carLocation || !carPick || !carDrop) return;
-    // Rentalcars.com deep link (read their affiliate docs for params)
-    const url = `https://www.rentalcars.com/SearchResults.do?affiliateCode=${RENTALCARS_PARTNER}&dropCity=${encodeURIComponent(carLocation)}&puDay=${carPick.slice(-2)}&puMonth=${carPick.slice(5,7)}&puYear=${carPick.slice(0,4)}&doDay=${carDrop.slice(-2)}&doMonth=${carDrop.slice(5,7)}&doYear=${carDrop.slice(0,4)}`;
-    window.open(url, "_blank");
-  }
-  function goActivities(e) {
-    e.preventDefault();
-    if (!activityPlace || !activityDate) return;
-    // GetYourGuide example; adapt for any best commission provider
-    const url = `https://partner.getyourguide.com/?partner_id=${GETYOURGUIDE_PARTNER}&q=${encodeURIComponent(activityPlace)}&date_from=${activityDate}`;
-    window.open(url, "_blank");
-  }
+
+  // Voice and city suggest omitted: see previous answer for those features, can be combined with this code
 
   return (
     <>
       <Head>
-        <title>TravelDistant | Compare Flights, Hotels, Cars – Book & Save</title>
-        <meta name="description" content="TravelDistant – Instantly compare flights, hotels, cars, and tours on major brands. Book with one click and get deals via affiliate partners." />
-        {/* Google AdSense */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2203546185229559"
-          crossOrigin="anonymous"
-        ></script>
+        <title>TravelDistant | Cheap Flights Search & Comparison</title>
+        <meta name="description" content="Compare flights, see daily pricing calendar, find cheapest airfares, and filter results by best, cheapest, fastest or direct. Modern, high-revenue meta-search." />
+        {/* ...meta, adsense, og, etc. as before ... */}
       </Head>
-      <div style={{background:"#f4f7fa", minHeight:"100vh", fontFamily:"'Segoe UI',sans-serif"}}>
-        {/* Header */}
-        <header style={{
-          width: "100%",
-          background: "#037fff",
-          color: "#fff",
-          padding: "18px 4vw 12px 4vw",
-          fontWeight:700,
-          letterSpacing:".7px",
-          display:"flex",
-          justifyContent:"space-between",
-          alignItems:"center"
-        }}>
-          <div style={{fontWeight:800, fontSize:"1.45rem", letterSpacing:".5px"}}>
-            <span role="img" aria-label="globe">🌍</span> TravelDistant
-          </div>
-          <nav>
-            <a href="#" style={{color:"#fff", marginRight:22, textDecoration:"none"}}>Flights</a>
-            <a href="#" style={{color:"#fff", marginRight:22, textDecoration:"none"}}>Hotels</a>
-            <a href="#" style={{color:"#fff", marginRight:22, textDecoration:"none"}}>Car Rental</a>
-            <a href="#" style={{color:"#fff", marginRight:22, textDecoration:"none"}}>Things to Do</a>
-            <a href="#" style={{color:"#fff", textDecoration:"none"}}>Help</a>
-          </nav>
+      <div style={{fontFamily:"'Segoe UI',sans-serif", background:"#f7fafe", minHeight:"100vh"}}>
+        <header style={{background:"#037fff", color:"#fff", padding:"15px 4vw"}}>
+          <div style={{fontWeight:900, fontSize:"1.65rem"}}>TravelDistant</div>
         </header>
-
-        {/* Tabs: Flights, Hotels, Cars, Activities */}
-        <div style={{
-          maxWidth:780, background:"#fff", margin:"36px auto 30px auto",
-          borderRadius:18, boxShadow:"0 2px 20px #e4eaf1", padding: "0 0 25px 0"
-        }}>
-          {/* Tab Buttons */}
-          <div style={{display:"flex",borderBottom:"1px solid #e2eaf1", background:"#f8fafe"}}>
-            <button style={tabStyle(tab==="flights")} onClick={()=>setTab("flights")}>Flights</button>
-            <button style={tabStyle(tab==="hotels")} onClick={()=>setTab("hotels")}>Hotels</button>
-            <button style={tabStyle(tab==="cars")} onClick={()=>setTab("cars")}>Car Rental</button>
-            <button style={tabStyle(tab==="activities")} onClick={()=>setTab("activities")}>Things to Do</button>
+        <div style={{maxWidth:880,background:"#fff",margin:"38px auto 20px auto",borderRadius:17,boxShadow:"0 2.5px 22px #e6ecf1",padding:"0 0 30px 0"}}>
+          {/* CALENDAR + SEARCH BAR */}
+          <section style={{padding:"52px 42px 20px 42px", minHeight:210}}>
+            <form onSubmit={handleFlightSearch} style={{display:"flex",gap:12,alignItems:"end"}}>
+              <div>
+                <label>From (IATA code)<br/>
+                  <input type="text" value={from} onChange={e=>setFrom(e.target.value.toUpperCase())}
+                    required placeholder="LHR" style={{width:90,padding:10,borderRadius:6,border:"1px solid #ccd"}}/>
+                </label>
+              </div>
+              <div>
+                <label>To (IATA code)<br/>
+                  <input type="text" value={to} onChange={e=>setTo(e.target.value.toUpperCase())}
+                    required placeholder="JFK" style={{width:90,padding:10,borderRadius:6,border:"1px solid #ccd"}}/>
+                </label>
+              </div>
+              <div>
+                <label>Depart<br/>
+                  <input type="date" value={depart} onChange={e=>setDepart(e.target.value)}
+                    style={{width:148,padding:10,borderRadius:6,border:"1px solid #ccd"}} required/>
+                </label>
+              </div>
+              <button type="button" onClick={fetchCalendarPrices}
+                style={{marginLeft:10,padding:"8px 16px",background:"#e0e9fd",border:"none",borderRadius:8,fontWeight:600,color:"#037fff",cursor:"pointer"}}>
+                Show Calendar
+              </button>
+              <button type="submit"
+                style={{
+                  background:"#037fff",color:"#fff",fontWeight:700,fontSize:"1.1rem",
+                  border:"none",padding:"14px 22px",borderRadius:8,cursor:"pointer"
+                }}>
+                Search Flights
+              </button>
+            </form>
+            {/* Calendar modal */}
+            {showCalendar && (
+              <div style={{
+                position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(47,58,77,0.16)",zIndex:50,
+                display:"flex",alignItems:"center",justifyContent:"center"
+              }}
+                onClick={()=>setShowCalendar(false)}
+              >
+                <div style={{
+                  background:"#fff",padding:"32px",borderRadius:14,
+                  boxShadow:"0 2px 14px #d4dcef",maxWidth:500,minWidth:300
+                }} onClick={e=>e.stopPropagation()}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <input type="month" value={calendarMonth}
+                      onChange={e=>setCalendarMonth(e.target.value)}
+                      style={{fontSize:"1.04rem",fontWeight:600,border:"1px solid #ccd",borderRadius:5,padding:"6px"}}
+                    />
+                    <button onClick={fetchCalendarPrices} style={{marginLeft:12,background:"#e8f2fc",border:"none",borderRadius:5,padding:"6px 15px",fontWeight:600,cursor:"pointer"}}>Refresh</button>
+                  </div>
+                  <div style={{margin:"0 0 10px 0",color:"#666"}}>Click a day to pick:</div>
+                  <div style={{
+                    display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3
+                  }}>
+                    {Array.from({length: 31}, (_,i)=>{
+                      const d = `${calendarMonth}-${String(i+1).padStart(2,"0")}`;
+                      const c = calendar.find(x=>x.date===d);
+                      return (
+                        <div key={d}
+                          onClick={()=>c && pickDay(c.date)}
+                          style={{
+                            background:c?"#ebf8ea":"#f7f7fa",color:"#263674",
+                            borderRadius:5,padding:8,minHeight:38,margin:1,
+                            cursor:c?"pointer":"default",border:c?"1px solid #12a45f":"1px solid #eee",textAlign:"center",fontWeight:600
+                          }}>
+                          <div>{i+1}</div>
+                          {c && <div style={{fontSize:"0.9em",color:"#26b347"}}>£{c.price}</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+          {/* SORT/FILTER TABS */}
+          <div style={{display:"flex",gap:0,margin:"5px 44px 7px 44px"}}>
+            {["recommended","cheapest","fastest","direct"].map(s=>(
+              <button key={s} style={{
+                flex:1, border:"none",background:"#f2f7fe",
+                fontWeight:600,fontSize:"1.07rem",color:sort===s?"#fff":"#037fff",
+                backgroundColor: sort===s ? "#037fff" : "#f2f7fe",padding:"8px 0",borderRadius:7,marginRight:9,cursor:"pointer"
+              }} onClick={()=>setSort(s)}>
+                {s[0].toUpperCase()+s.slice(1)}
+              </button>
+            ))}
           </div>
-          {/* Tabs' Content */}
-          <div style={{padding: "40px 32px", minHeight:230}}>
-            {tab==="flights"&&(
-              <form onSubmit={goFlights} style={{display:"flex", gap:12, flexWrap:"wrap", alignItems:"end"}}>
-                <div>
-                  <label>From<br/>
-                    <input placeholder="e.g. LON" value={flightFrom} onChange={e=>setFlightFrom(e.target.value.toUpperCase())}
-                      required style={{width:100,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>To<br/>
-                    <input placeholder="e.g. NYC" value={flightTo} onChange={e=>setFlightTo(e.target.value.toUpperCase())}
-                      required style={{width:100,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Depart<br/>
-                    <input type="date" value={flightDepart} onChange={e=>setFlightDepart(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Return<br/>
-                    <input type="date" value={flightReturn} onChange={e=>setFlightReturn(e.target.value)}
-                      style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <button type="submit"
-                  style={{
-                    background:"#037fff", color:"#fff",
-                    padding:"14px 32px", border:"none",borderRadius:8,
-                    fontWeight:700,fontSize:"1rem",cursor:"pointer"
+          {/* FLIGHT RESULTS */}
+          <div style={{padding:"5px 42px 36px 42px"}}>
+            {loading && <div>Finding best fares...</div>}
+            {showResults().length > 0 && <section>
+              <h4 style={{fontWeight:700,margin:"0 0 12px 0",color:"#037fff"}}>
+                Flights for {from} → {to} on {depart}
+              </h4>
+              <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                {showResults().map((f,idx)=>(
+                  <div key={idx} style={{
+                    background:"#eef6ff",borderRadius:13,padding:"18px 19px",minWidth:210,boxShadow:"0 2px 10px #ecf0ff"
                   }}>
-                  Search Flights
-                </button>
-              </form>
-            )}
-            {tab==="hotels"&&(
-              <form onSubmit={goHotels} style={{display:"flex", gap:12, flexWrap:"wrap", alignItems:"end"}}>
-                <div>
-                  <label>Place/Hotel<br/>
-                    <input placeholder="e.g. London" value={hotelPlace} onChange={e=>setHotelPlace(e.target.value)}
-                      required style={{width:155,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Check-in<br/>
-                    <input type="date" value={hotelCheckin} onChange={e=>setHotelCheckin(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Check-out<br/>
-                    <input type="date" value={hotelCheckout} onChange={e=>setHotelCheckout(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <button type="submit"
-                  style={{
-                    background:"#12a45f", color:"#fff",
-                    padding:"14px 32px", border:"none",borderRadius:8,
-                    fontWeight:700,fontSize:"1rem",cursor:"pointer"
-                  }}>
-                  Search Hotels
-                </button>
-              </form>
-            )}
-            {tab==="cars"&&(
-              <form onSubmit={goCars} style={{display:"flex", gap:12, flexWrap:"wrap", alignItems:"end"}}>
-                <div>
-                  <label>Pick-up City<br/>
-                    <input placeholder="e.g. Paris" value={carLocation} onChange={e=>setCarLocation(e.target.value)}
-                      required style={{width:155,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Pick-up Date<br/>
-                    <input type="date" value={carPick} onChange={e=>setCarPick(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Drop-off Date<br/>
-                    <input type="date" value={carDrop} onChange={e=>setCarDrop(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <button type="submit"
-                  style={{
-                    background:"#fe9000", color:"#fff",
-                    padding:"14px 32px", border:"none",borderRadius:8,
-                    fontWeight:700,fontSize:"1rem",cursor:"pointer"
-                  }}>
-                  Search Cars
-                </button>
-              </form>
-            )}
-            {tab==="activities"&&(
-              <form onSubmit={goActivities} style={{display:"flex", gap:12, flexWrap:"wrap", alignItems:"end"}}>
-                <div>
-                  <label>City/Place<br/>
-                    <input placeholder="e.g. Rome" value={activityPlace} onChange={e=>setActivityPlace(e.target.value)}
-                      required style={{width:155,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <div>
-                  <label>Date<br/>
-                    <input type="date" value={activityDate} onChange={e=>setActivityDate(e.target.value)}
-                      required style={{width:125,padding:9,borderRadius:7,border:"1px solid #ccd"}} />
-                  </label>
-                </div>
-                <button type="submit"
-                  style={{
-                    background:"#eb003e", color:"#fff",
-                    padding:"14px 32px", border:"none",borderRadius:8,
-                    fontWeight:700,fontSize:"1rem",cursor:"pointer"
-                  }}>
-                  Search Things to Do
-                </button>
-              </form>
-            )}
+                    <div><b>{f.cityFrom} → {f.cityTo}</b></div>
+                    <div>{new Date(f.local_departure).toLocaleString()} <span style={{color:"#aaa"}}>({f.fly_duration})</span></div>
+                    <div style={{fontSize:"1.07rem",fontWeight:700,padding:"9px 0",color:"#178323"}}>
+                      £{f.price}
+                    </div>
+                    {f.route.length===1 && <div style={{fontSize:"0.98rem",color:"#1cbb82",marginBottom:2}}>Direct</div>}
+                    <button style={{
+                      background:"#037fff",padding:"6px 13px",color:"#fff",
+                      border:"none",borderRadius:8,cursor:"pointer"
+                    }} 
+                      onClick={()=>window.open(
+                        `https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g,"")}/?associateid=YOUR_SKYSCANNER_AFFILIATE_ID`
+                        ,"_blank")}>
+                      Book &rarr;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>}
           </div>
         </div>
-
-        {/* Main Banner Ad */}
-        <div style={{textAlign:"center",margin:"38px 0 16px 0"}}>
-          <ins className="adsbygoogle"
-            style={{ display: "block", textAlign: "center", minHeight: 90 }}
-            data-ad-client="ca-pub-2203546185229559"
-            data-ad-slot="1234567890"
-            data-ad-format="auto"
-            data-full-width-responsive="true"></ins>
-          <script>{`(adsbygoogle = window.adsbygoogle || []).push({});`}</script>
-        </div>
-
-        {/* Popular Affiliate Links Row */}
-        <div style={{maxWidth:810,margin:"35px auto 15px auto",display:"flex",gap:15,flexWrap:"wrap",justifyContent:"center"}}>
-          <a href="https://www.booking.com/index.html?aid=YOUR_BOOKING_AID" target="_blank"
-            style={{background:"#003580",color:"white",padding:"10px 18px",borderRadius:7,textDecoration:"none",fontWeight:600}}>Booking.com</a>
-          <a href="https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID" target="_blank"
-            style={{background:"#037fff",color:"white",padding:"10px 18px",borderRadius:7,textDecoration:"none",fontWeight:600}}>Skyscanner</a>
-          <a href="https://www.expedia.com/" target="_blank"
-             style={{background:"#fcb900", color:"#222", padding:"10px 18px", borderRadius:7,textDecoration:"none",fontWeight:600}}>Expedia</a>
-          <a href="https://www.rentalcars.com/?affiliateCode=YOUR_RENTALCARS_ID" target="_blank"
-            style={{background:"#fe9000",color:"white",padding:"10px 18px",borderRadius:7,textDecoration:"none",fontWeight:600}}>Rentalcars.com</a>
-          <a href="https://partner.getyourguide.com/?partner_id=YOUR_GYG_ID" target="_blank"
-              style={{background:"#22bf67",color:"white",padding:"10px 18px",borderRadius:7,textDecoration:"none",fontWeight:600}}>GetYourGuide</a>
-          <a href="https://www.klook.com/affiliate/invite/YOUR_KLOOK_REF" target="_blank"
-            style={{background:"#ff4c68",color:"white",padding:"10px 18px",borderRadius:7,textDecoration:"none",fontWeight:600}}>Klook</a>
-        </div>
-
-        {/* Footer */}
+        {/* Could now add blog/ads/affiliate links/footer/etc here ... */}
         <footer style={{
-          marginTop:36,
+          marginTop:30,
           textAlign:"center",
           padding:"36px 0 14px 0",
           fontSize:"1rem",
