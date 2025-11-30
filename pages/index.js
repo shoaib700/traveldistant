@@ -1,79 +1,128 @@
+import { useState } from "react";
 import Head from "next/head";
 
+// Replace with your real Booking.com affiliate ID!
+const BOOKING_AID = "YOUR_AFFILIATE_ID";
+
 export default function Home() {
+  const [ss, setSs] = useState("");
+  const [checkin, setCheckin] = useState("");
+  const [checkout, setCheckout] = useState("");
+
+  function handleSearch(e) {
+    e.preventDefault();
+    if (!ss || !checkin || !checkout) return;
+    const inDate = new Date(checkin);
+    const outDate = new Date(checkout);
+    const url = `https://www.booking.com/searchresults.html?aid=${BOOKING_AID
+      }&ss=${encodeURIComponent(ss)
+      }&checkin_year=${inDate.getFullYear()
+      }&checkin_month=${inDate.getMonth() + 1
+      }&checkin_monthday=${inDate.getDate()
+      }&checkout_year=${outDate.getFullYear()
+      }&checkout_month=${outDate.getMonth() + 1
+      }&checkout_monthday=${outDate.getDate()}`;
+
+    window.open(url, "_blank");
+  }
+
   return (
     <>
       <Head>
-        <title>TravelDistant | Last-Minute Travel Deals, Flights & Hotels</title>
-        <meta name="description" content="TravelDistant: Search and compare top last-minute travel deals, book flights & hotels, and save. Monetized with ads and affiliate links." />
-        {/* Google AdSense script (replace ca-pub-XXXX with yours) */}
+        <title>TravelDistant | Compare Hotels & Book Last-Minute</title>
+        <meta name="description" content="TravelDistant - Instantly compare last-minute deals for hotels and holidays. Powered by affiliate booking—get paid every booking!" />
+        {/* Google AdSense */}
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2203546185229559"
           crossOrigin="anonymous"
         ></script>
       </Head>
-      <main style={{
-        maxWidth: 800, margin: "auto", padding: 32, fontFamily: "sans-serif", background: "#f6f8fa", minHeight: "100vh"
-      }}>
-        <h1 style={{ fontSize: "2.5rem", display: "flex", alignItems: "center", gap: 14 }}>
-          <span role="img" aria-label="globe">🌍</span> TravelDistant
-        </h1>
-        <p style={{ fontSize: "1.2rem" }}>
-          Find exclusive last-minute <b>flights</b>, <b>hotels</b>, and <b>package deals</b> from the world’s leading travel sites.
-        </p>
+      <main style={{ fontFamily: "sans-serif", background: "#f5f6fa", minHeight: "100vh", padding: 0 }}>
+        <header style={{ background: "#fff", padding: "25px 0 10px 0", textAlign: "center", boxShadow: "0 1px 12px #ebeaea" }}>
+          <h1 style={{ fontSize: "2.3rem", color: "#037fff" }}>
+            <span role="img" aria-label="globe">🌍</span> TravelDistant
+          </h1>
+          <div style={{fontSize: "1.2rem", color: "#222"}}>Search the best live hotel deals and book with one click.</div>
+        </header>
 
         <section style={{
-          background: "#fff",
-          borderRadius: 10,
-          padding: 24,
-          margin: "32px 0",
-          boxShadow: "0 2px 16px 0 #eee"
+          maxWidth: 540, margin: "40px auto", background: "#fff",
+          borderRadius: 12, padding: "26px 5vw", boxShadow: "0 2px 16px #ececec"
         }}>
-          <h2 style={{ fontSize: "1.2rem" }}>Compare & Book Now</h2>
-          {/* Travel affiliate links, replace with your real ones */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <a href="https://www.booking.com/index.html?aid=YOUR_AFFILIATE_ID" target="_blank"
+          <form onSubmit={handleSearch}
+            style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+            <div style={{ flex: 1 }}>
+              <label>Destination / Hotel<br />
+                <input
+                  type="text"
+                  value={ss}
+                  onChange={e => setSs(e.target.value)}
+                  required
+                  style={{
+                    width: "100%", padding: 12, borderRadius: 7, border: "1px solid #ccd"
+                  }} />
+              </label>
+            </div>
+            <div>
+              <label>Check-in<br />
+                <input
+                  type="date"
+                  value={checkin}
+                  onChange={e => setCheckin(e.target.value)}
+                  required
+                  style={{
+                    width: "140px", padding: 12, borderRadius: 7, border: "1px solid #ccd"
+                  }} />
+              </label>
+            </div>
+            <div>
+              <label>Check-out<br />
+                <input
+                  type="date"
+                  value={checkout}
+                  onChange={e => setCheckout(e.target.value)}
+                  required
+                  style={{
+                    width: "140px", padding: 12, borderRadius: 7, border: "1px solid #ccd"
+                  }} />
+              </label>
+            </div>
+            <button
+              type="submit"
               style={{
-                background: "#003580", color: "white", padding: "10px 24px", borderRadius: 8, textDecoration: "none"
-              }}>Hotels: Booking.com</a>
-            <a href="https://www.agoda.com/?cid=YOUR_CID" target="_blank"
-              style={{
-                background: "#00224f", color: "white", padding: "10px 24px", borderRadius: 8, textDecoration: "none"
-              }}>Hotels: Agoda</a>
-            <a href="https://www.skyscanner.net/?associateid=YOUR_ID" target="_blank"
-              style={{
-                background: "#037fff", color: "white", padding: "10px 24px", borderRadius: 8, textDecoration: "none"
-              }}>Flights: Skyscanner</a>
-            <a href="https://www.expedia.com/" target="_blank"
-              style={{
-                background: "#fcb900", color: "#222", padding: "10px 24px", borderRadius: 8, textDecoration: "none"
-              }}>Flights: Expedia</a>
-          </div>
-          <small style={{display: "block", marginTop: 8, color: "#888"}}>
-            * These are affiliate links. We may earn a commission if you book.
-          </small>
+                background: "#037fff", color: "#fff",
+                padding: "12px 28px", border: "none", borderRadius: 8,
+                fontWeight: 700, fontSize: "1rem", cursor: "pointer"
+              }}>
+              Search Deals
+            </button>
+          </form>
+          <div style={{marginTop:18, fontSize:".95rem", color:"#686"}}>We earn a commission from our booking partner, at no extra cost to you.</div>
         </section>
 
-        {/* AdSense Ad Example */}
-        <div style={{ margin: "40px 0", textAlign: "center" }}>
+        {/* Demo AdSense ad slot */}
+        <div style={{ textAlign: "center", margin: "38px 0" }}>
           <ins className="adsbygoogle"
-               style={{ display: "block", textAlign: "center" }}
-               data-ad-client="ca-pub-2203546185229559"
-               data-ad-slot="1234567890"
-               data-ad-format="auto"
-               data-full-width-responsive="true"></ins>
+            style={{ display: "block", textAlign: "center", minHeight: 90 }}
+            data-ad-client="ca-pub-2203546185229559"
+            data-ad-slot="1234567890"
+            data-ad-format="auto"
+            data-full-width-responsive="true"></ins>
           <script>
             {`(adsbygoogle = window.adsbygoogle || []).push({});`}
           </script>
         </div>
 
-        <footer style={{ fontSize: ".95rem", color: "#666", marginTop: 60 }}>
-          <p>
-            &copy; {new Date().getFullYear()} TravelDistant. <br />
-            Last-minute travel deals site, powered by affiliate and advertising revenue.<br />
-            <span style={{fontSize: ".8rem"}}>Not affiliated with lastminute.com or trip.com.</span>
-          </p>
+        <footer style={{
+          marginTop: 40,
+          textAlign: "center",
+          fontSize: ".97rem",
+          color: "#999"
+        }}>
+          <hr style={{border:"none", height:1, background:"#ddd", margin:"32px auto", width:"80%"}}/>
+          © {new Date().getFullYear()} TravelDistant<br />
+          Site powered by affiliate and Google AdSense revenue.
         </footer>
       </main>
     </>
