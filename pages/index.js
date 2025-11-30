@@ -1,63 +1,102 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 
-// ------------ Language, Country, Currency Data Setup -------------
+// ---------------- Data Setup (LANG/COUNTRY/CURRENCY/DEALS/AFFiliates) -------------
 const LANGUAGES = [
-  { code: 'en', label: 'English' }, { code: 'fr', label: 'Français' },
-  { code: 'es', label: 'Español' }, { code: 'de', label: 'Deutsch' }, 
-  { code: 'it', label: 'Italiano' }, { code: 'ar', label: 'العربية' }
+  { code: 'en', label: 'English' }, { code: 'fr', label: 'Français' }, { code: 'es', label: 'Español' }, { code: 'de', label: 'Deutsch' }
 ];
 const COUNTRIES = [
-  { code: 'GB', label: 'United Kingdom', flag: "🇬🇧" }, { code: 'US', label: 'United States', flag: "🇺🇸" },
-  { code: 'FR', label: 'France', flag: "🇫🇷" }, { code: 'DE', label: 'Germany', flag: "🇩🇪" },
-  { code: 'IT', label: 'Italy', flag: "🇮🇹" }, { code: 'PK', label: 'Pakistan', flag: "🇵🇰" },
+  { code: 'GB', label: 'United Kingdom', flag: "🇬🇧" }, { code: 'US', label: 'United States', flag: "🇺🇸" }, { code: 'PK', label: 'Pakistan', flag: "🇵🇰" }
 ];
 const CURRENCIES = [
-  { code: "GBP", symbol: "£" }, { code: "USD", symbol: "$" },
-  { code: "EUR", symbol: "€" }, { code: "PKR", symbol: "₨" }
+  { code: "GBP", symbol: "£" }, { code: "USD", symbol: "$" }, { code: "EUR", symbol: "€" }, { code: "PKR", symbol: "₨" }
 ];
-const countryToCurrency = { GB: "GBP", US: "USD", FR: "EUR", DE: "EUR", IT: "EUR", PK: "PKR" };
+const countryToCurrency = { GB: "GBP", US: "USD", PK: "PKR" };
 
-// ------------ Affiliate and Deal Data (fill in with your IDs/links as needed) -------------
-const AFFILIATES = [
-  { name: "Booking.com", url: "https://www.booking.com/index.html?aid=YOUR_BOOKING_AID", color: "#023580" },
-  { name: "Skyscanner", url: "https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID", color: "#1776da" },
-  { name: "Expedia", url: "https://www.expedia.com/", color: "#fcb900", fontColor: "#222" },
-  { name: "Rentalcars.com", url: "https://www.rentalcars.com/?affiliateCode=YOUR_RENTALCARS_ID", color: "#ffad1f" },
-  { name: "GetYourGuide", url: "https://partner.getyourguide.com/?partner_id=YOUR_GYG_ID", color: "#23bf67" },
-  { name: "Klook", url: "https://www.klook.com/affiliate/invite/YOUR_KLOOK_REF", color: "#ff4c68" }
+// ---------------- Deal Feed / Affiliates Per Tab --------------
+const TABS = [
+  { key: "flights",     label: "Flights"     },
+  { key: "hotels",      label: "Hotels"      },
+  { key: "car",         label: "Car Rental"  },
+  { key: "things",      label: "Things to Do"}
 ];
+
+const TAB_AFFILIATES = {
+  flights: [
+    { name: "Skyscanner", url: "https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID", color: "#1776da" },
+    { name: "Expedia",    url: "https://www.expedia.com/", color: "#fcb900", fontColor: "#222" }
+  ],
+  hotels: [
+    { name: "Booking.com", url: "https://www.booking.com/index.html?aid=YOUR_BOOKING_AID", color: "#023580" },
+    { name: "Agoda", url: "https://www.agoda.com/?cid=YOUR_AGODA_CID", color: "#073763" }
+  ],
+  car: [
+    { name: "Rentalcars.com", url: "https://www.rentalcars.com/?affiliateCode=YOUR_RENTALCARS_ID", color: "#ffad1f", fontColor: "#222" },
+    { name: "Expedia Cars", url: "https://www.expedia.com/Cars", color: "#fcb900", fontColor: "#222" }
+  ],
+  things: [
+    { name: "GetYourGuide", url: "https://partner.getyourguide.com/?partner_id=YOUR_GYG_ID", color: "#23bf67" },
+    { name: "Klook", url: "https://www.klook.com/affiliate/invite/YOUR_KLOOK_REF", color: "#ff4c68" }
+  ]
+};
+
+// Important: Deals below have a "tab" key (for each tab)
 const DEALS = [
   {
-    title: "Prague City Break",
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80",
-    desc: "£124 pp · 5★ hotel · 2 nights + flights · BONUS: Free bottle of wine",
+    tab: "flights",
+    title: "London → Rome, Save 35%",
+    image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&q=80",
+    desc: "£68 return · Nonstop · Book now!",
     badge: "EXCLUSIVE",
-    expires: "in 2 days",
+    expires: "today",
+    link: "https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID"
+  },
+  {
+    tab: "hotels",
+    title: "Dubai 5★ Resort, £99/night",
+    image: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=600&q=80",
+    desc: "Breakfast. Pool. Family fun.",
+    badge: "HOT HOTEL",
+    expires: "this week",
     link: "https://www.booking.com/index.html?aid=YOUR_BOOKING_AID"
   },
   {
-    title: "Rome, Italy – Flights + 4★ hotel",
-    image: "https://images.unsplash.com/photo-1413882353314-73389f63b6fa?w=600&q=80",
-    desc: "£217 pp · Centrally located · Flights included",
-    badge: "HOT",
+    tab: "car",
+    title: "Barcelona Car Rental Special",
+    image: "https://images.unsplash.com/photo-1516575529150-6b8a0b9029d4?w=600&q=80",
+    desc: "£15/day · Free navigation & upgrades",
+    badge: "DRIVE DEAL",
     expires: "in 3 days",
-    link: "https://www.expedia.com/"
+    link: "https://www.rentalcars.com/?affiliateCode=YOUR_RENTALCARS_ID"
   },
   {
-    title: "Last Minute: Paris Dream Trip",
+    tab: "things",
+    title: "Paris City Guided Tour ~ 25% off",
     image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=600&q=80",
-    desc: "£181 pp · Boutique 3★ · Breakfast incl.",
-    badge: "LAST MINUTE",
+    desc: "Skip-the-line, museum & wine, single price",
+    badge: "FEATURED EXPERIENCE",
     expires: "today",
-    link: "https://www.skyscanner.net/?associateid=YOUR_SKYSCANNER_ID"
+    link: "https://partner.getyourguide.com/?partner_id=YOUR_GYG_ID"
   }
-  // ...Add more deals as desired
 ];
 
-// ------------- Main Page UI -----------------
+// Helper: Get the best deal for a tab (could be automated with APIs)
+function getBestDeal(tab) {
+  const ds = DEALS.filter(d => d.tab === tab);
+  return ds.length ? ds[0] : null;
+}
+
+// Helper: Pick ad for tab (here, AdSense slot id per tab)
+function getTabAd(tab) {
+  if(tab==="flights") return { adSlot: "flights-slot", label: "Google Flights Ad" }; // replace with your real AdSense/affiliate unit
+  if(tab==="hotels") return { adSlot: "hotels-slot", label: "Google Hotels Ad" };
+  if(tab==="car")    return { adSlot: "car-slot", label: "Car Rental Offer Ad" };
+  if(tab==="things") return { adSlot: "things-slot", label: "Tour/Activity Ad" };
+}
+
+// --------------- Main Component -------------------
 export default function Home() {
-  // Language/Country/Currency state and auto-detection logic
+  // Locale state
   const [lang, setLang] = useState('en');
   const [country, setCountry] = useState('GB');
   const [currency, setCurrency] = useState('GBP');
@@ -81,190 +120,256 @@ export default function Home() {
     if (mapped && CURRENCIES.some(c => c.code === mapped)) setCurrency(mapped);
   }
 
-  // Tabs/smart search UI management
+  // Tabs
   const [tab, setTab] = useState("flights");
-  const [flightType, setFlightType] = useState("return"); // return|oneway|multi
+  const [flightType, setFlightType] = useState("return");
   const [segments, setSegments] = useState([{ from: "", to: "", depart: "" }]);
   const [ret, setRet] = useState("");
+
+  // ----------- AI Voice Command & Autofill (SpeechRecognition) -----------
+  const [listening, setListening] = useState(false);
+  const recRef = useRef();
+  function speechToFields() {
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+      alert("Voice Input not supported in this browser.");
+      return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recog = new Recognition();
+    recog.lang = lang;
+    recog.onstart = () => setListening(true);
+    recog.onend = () => setListening(false);
+    recog.onresult = e => {
+      setListening(false);
+      const text = e.results[0][0].transcript;
+      // Basic parse: "Book me a flight from Lahore to Dubai on December 10"
+      // Could use GPT for smarter parse, for MVP do basic patterns:
+      const fMatch = /(from)\s+([a-zA-Z ]+)\s+(to)\s+([a-zA-Z ]+)\s+(on)\s+([\w- ]+)/i.exec(text);
+      if(fMatch) {
+        setSegments([{ from: fMatch[2].trim().toUpperCase(), to: fMatch[4].trim().toUpperCase(), depart: formatDateInput(fMatch[6]) }]);
+      }
+      // else just fill the "from" for demo
+      else if(text.match(/from/i)) setSegments([{ ...segments[0], from: text.split("from")[1].split(" ")[0].toUpperCase() }]);
+    };
+    recog.start();
+    recRef.current = recog;
+  }
+  function formatDateInput(txt) {
+    // try to parse as normal date string; fallback: today
+    const d = new Date(txt);
+    if (!isNaN(d)) return d.toISOString().slice(0,10);
+    return new Date().toISOString().slice(0,10);
+  }
 
   function addSegment() {
     setSegments([...segments, { from: "", to: "", depart: "" }]);
   }
-  function removeSegment(idx) {
-    if (segments.length <= 1) return;
-    setSegments(segments.filter((_, i) => i !== idx));
-  }
+  function removeSegment(idx) { if(segments.length<=1)return; setSegments(segments.filter((_,i)=>i!==idx)); }
   function setSegment(idx, field, val) {
-    setSegments(segments.map((s, i) =>
-      i === idx ? { ...s, [field]: val } : s
-    ));
+    setSegments(segments.map((s,i)=>i===idx?{ ...s, [field]: val }:s));
   }
 
-  // Search submit logic for each tab
   function submit(e) {
     e.preventDefault();
-    if (tab === "flights") {
-      if (flightType === "return") {
+    if(tab==="flights") {
+      if(flightType==="return") {
         const { from, to, depart } = segments[0];
-        const url = `https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g, "")}/${ret.replace(/-/g, "")}?associateid=YOUR_SKYSCANNER_ID`;
-        window.open(url, '_blank');
-      } else if (flightType === "oneway") {
+        window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g,"")}/${ret.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
+      } else if(flightType==="oneway") {
         const { from, to, depart } = segments[0];
-        const url = `https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g, "")}?associateid=YOUR_SKYSCANNER_ID`;
-        window.open(url, '_blank');
-      } else if (flightType === "multi") {
-        window.open("https://www.skyscanner.net/transport/flights/multi?associateid=YOUR_SKYSCANNER_ID", '_blank');
+        window.open(`https://www.skyscanner.net/transport/flights/${from}/${to}/${depart.replace(/-/g,"")}?associateid=YOUR_SKYSCANNER_ID`,'_blank');
+      } else if(flightType==="multi") {
+        window.open("https://www.skyscanner.net/transport/flights/multi?associateid=YOUR_SKYSCANNER_ID",'_blank');
       }
     }
-    // Extend for other tabs (see earlier answers for booking.com, rentalcars etc.)
-  }
-
-  // Navigation bar button UI
-  function navButton(name, state) {
-    return (
-      <button key={name}
-        onClick={() => setTab(state)}
-        style={{
-          border: "none",
-          background: "none",
-          color: tab === state ? "#ff3880" : "#fff",
-          fontWeight: tab === state ? 700 : 500,
-          fontSize: "1.07rem",
-          margin: "0 13px",
-          cursor: "pointer",
-          borderBottom: tab === state ? "2.5px solid #ffe1f0" : "none",
-          paddingBottom: tab === state ? "8px" : "10px"
-        }}>
-        {name}
-      </button>
-    );
+    // ...similar for hotels, car, things
   }
 
   return (
     <>
       <Head>
-        <title>TravelDistant | Cheap Flights, Hotels, Car Hire, Activities, Deals</title>
-        <meta name="description" content="Book flights, hotels, cars, activities. Last minute deals, multi-trip, exclusive offers. With auto language/country/currency detection and selection." />
+        <title>TravelDistant | Cheap Flights, Hotels, Cars, Tours</title>
+        <meta name="description" content={`All-in-one travel: compare flights, hotels, car hire, activities. Auto language/country/currency. Voice AI search. Live deals feed. Best commission!`} />
       </Head>
-      <div style={{ background: "#f7f7fc", minHeight: "100vh" }}>
-        {/* -------- TOP NAV & DROPDOWNS ---------- */}
+      <div style={{ background: "#f4f8fc", minHeight: "100vh", width: "100vw", fontFamily: "'Segoe UI',sans-serif" }}>
+        {/* --------------- TOP NAVBAR ------------- */}
         <header style={{
-          width: "100%", background: "linear-gradient(90deg,#2495f8 85%,#fa3fa6 100%)", color: "#fff", padding: "24px 0 13px 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 700, fontSize: "1.37rem"
+          width: "100%", background: "linear-gradient(90deg,#26a8ff 85%,#ff7eb4 100%)", color: "#fff",
+          padding: "21px 0 13px 0", display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 700
         }}>
-          <span style={{ marginLeft: "5vw" }}>🌍 TravelDistant</span>
-          {/* DROPDOWNS + NAV */}
-          <div style={{ display: "flex", alignItems: "center", gap: 15, marginRight: "5vw" }}>
-            {navButton("Flights", "flights")}
-            {navButton("Hotels", "hotels")}
-            {navButton("Car Rental", "car")}
-            {navButton("Things to Do", "things")}
+          {/* LOGO */}
+          <span style={{ marginLeft: "4vw",display:'flex',alignItems:'center',fontWeight:900,fontSize:'1.56rem'}}>
+            {/* SVG Globe+Plane Icon */}
+            <svg width="38" height="38" viewBox="0 0 120 120" fill="none" style={{marginRight:10}} xmlns="http://www.w3.org/2000/svg">
+              <circle cx="60" cy="60" r="54" stroke="#fff" strokeWidth="11" fill="url(#g1)" />
+              <ellipse cx="60" cy="90" rx="28" ry="6" fill="#c1ebff" opacity="0.7" />
+              <path d="M76,46 L88,60 L44,75 L52,58 Z" fill="#2ea6df" stroke="#1877d2" strokeWidth="3" />
+              <circle cx="60.5" cy="60.5" r="30" fill="#fafdff" stroke="#34b1fb" strokeWidth="3"/>
+              <defs>
+                <radialGradient id="g1" cx="0.5" cy="0.5" r="0.9">
+                  <stop stopColor="#36ddfa" />
+                  <stop offset="1" stopColor="#1877d2" />
+                </radialGradient>
+              </defs>
+            </svg>
+            <span>TravelDistant</span>
+          </span>
+          {/* NAV + SETTINGS */}
+          <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
+            {TABS.map(t =>
+              <button key={t.key} onClick={() => setTab(t.key)}
+                style={{
+                  border: "none", background: "none",
+                  color: tab === t.key ? "#fce283" : "#fff", fontWeight: tab === t.key ? 800 : 500,
+                  fontSize: "1.11rem", margin: "0 6px", cursor: "pointer", padding: "4px 9px", borderBottom: tab === t.key ? "3px solid #fff" : "none"
+                }}>
+                {t.label}
+              </button>)}
             <span style={{ marginLeft: 15, fontWeight: 500 }}>Help</span>
-            <span style={{ fontSize: "1.06rem", marginLeft: 20 }}>🌐</span>
+            {/* Locale Controls */}
+            <span style={{ fontSize: "1.1rem", marginLeft: 23 }}>🌐</span>
             <select value={lang} onChange={e => setLang(e.target.value)}
               style={{ padding: "7px 12px", borderRadius: 6, border: "none", fontWeight: 700, fontSize: "1rem" }}>
               {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
             </select>
             <select value={country} onChange={handleCountryChange}
               style={{ padding: "7px 12px", borderRadius: 6, border: "none", fontWeight: 700, fontSize: "1rem" }}>
-              {COUNTRIES.map(c =>
-                <option key={c.code} value={c.code}>{c.flag}&nbsp;{c.label}</option>
-              )}
+              {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag + " " + c.label}</option>)}
             </select>
             <select value={currency} onChange={e => setCurrency(e.target.value)}
               style={{ padding: "7px 10px", borderRadius: 6, border: "none", fontWeight: 700, fontSize: "1rem" }}>
-              {CURRENCIES.map(c =>
-                <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
-              )}
+              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
             </select>
           </div>
         </header>
 
-        {/* BANNER/HERO SECTION (optional) */}
-        <div style={{ width: "100%", background: "linear-gradient(90deg,#f5e3fc 40%,#c9e0fb 100%)", }}>
+        {/* ------------- HERO / DEAL BANNER (Best Deal for This Tab) ------------- */}
+        <div style={{
+          width: "100%", background: "linear-gradient(90deg,#ffe6fa 40%,#c5eafb 100%)", 
+          boxShadow: "0 8px 32px #d7e7fa"
+        }}>
           <div style={{
-            margin: "0 auto", maxWidth: 980,
-            display: "flex", alignItems: "center", gap: 35, justifyContent: "start"
+            maxWidth: 900, margin: "0 auto", display: "flex", alignItems: "center", gap: 37, justifyContent: "start", minHeight: "160px"
           }}>
-            <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=540&q=80"
-              alt="Hero Prague" style={{
-                width: 275, height: 175, objectFit: "cover", borderRadius: 19, marginTop: 26, boxShadow: "0 2px 30px #dcc4e0"
+            {/* "Best" deal card */}
+            {getBestDeal(tab) &&
+              <img src={getBestDeal(tab).image} alt="Deal" style={{
+                width: 210, height: 135, objectFit: "cover", borderRadius: 21, marginTop: 26, boxShadow: "0 2px 30px #dcc4e0"
               }} />
-            <div style={{ fontSize: "2.6rem", fontWeight: 800, color: "#e81e65", marginTop: 19 }}>EXCLUSIVE DEAL <br />
-              <span style={{ fontSize: "2rem", color: "#2495f8", fontWeight: 900, letterSpacing: ".5px" }}>PRAGUE <span style={{ color: "#ffb800", fontWeight: 900 }}>£124 pp</span></span>
-              <br /><span style={{ fontSize: "1.2rem", color: "#784a90", fontWeight: 600 }}>5★ hotel & flights + <span style={{ color: "#01ba65" }}>FREE BOTTLE OF WINE</span></span>
+            }
+            <div style={{
+              fontSize: "2.2rem", fontWeight: 900, color: "#ea3199", marginTop: getBestDeal(tab)?19:0,marginLeft:12,letterSpacing:".5px"
+            }}>
+              {getBestDeal(tab) &&
+                <>{getBestDeal(tab).badge}&nbsp;<span style={{color:"#22b4ed"}}>{getBestDeal(tab).title}</span><br />
+                <span style={{color:"#faa010",fontWeight:900,fontSize:"1.73rem"}}>{getBestDeal(tab).desc}</span></>
+              }
             </div>
           </div>
         </div>
 
-        {/* --------- SEARCH CARD ----------- */}
+        {/* ------------- SEARCH CARD + Tab-specific Ad Unit ------------- */}
         <main style={{
-          maxWidth: 620, margin: "-48px auto 34px auto", background: "#fff", borderRadius: 21, boxShadow: "0 8px 44px #e2eaf6", padding: "38px 2vw 36px 2vw", position: "relative", zIndex: 2
+          maxWidth: 640, margin: "-52px auto 36px auto", background: "#fff", borderRadius: 23, boxShadow: "0 8px 44px #e2eaf6", padding: "38px 2vw 36px 2vw"
         }}>
-          {/* Flights tab - Return / One-way / Multi (multi as skeleton) */}
+          {/* Tab-specific Ad */}
+          <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
+            {/* Render AdSense or affiliate widget/HTML dynamically by tab, or use ad component */}
+            <div style={{
+              background:"#fffbee",color:"#e86336",borderRadius:8,minHeight:35,
+              fontWeight:600,textAlign:'center',padding:'7px 15px',fontSize:'1.03rem',border:"1.5px solid #ffe1a3",boxShadow:"0 2px 10px #f6dec9"
+            }}>
+              {getTabAd(tab).label}
+            </div>
+          </div>
+          {/* Flights tab: Main search + voice mic */}
           {tab === "flights" &&
             <>
-              <div style={{ display: "flex", justifyContent: "center", gap: 11, marginBottom: 24, fontWeight: 700 }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 14, marginBottom: 23 }}>
                 {["return", "oneway", "multi"].map(ft =>
                   <button key={ft} onClick={() => setFlightType(ft)} style={{
-                    background: flightType === ft ? "#e81e65" : "#f5f7fa", color: flightType === ft ? "#fff" : "#222",
-                    fontWeight: 700, fontSize: "1.08rem", border: "none", borderRadius: 12, padding: "10px 33px", cursor: "pointer"
+                    background: flightType === ft ? "#ea3199" : "#f5f7fa", color: flightType === ft ? "#fff" : "#222",
+                    fontWeight: 800, fontSize: "1.09rem", border: "none", borderRadius: 12, padding: "10px 30px", cursor: "pointer"
                   }}>{ft === "return" ? "Return" : ft === "oneway" ? "One-way" : "Multi-trip"}</button>
                 )}
               </div>
-              <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 17 }}>
+              <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 19 }}>
                 {flightType === "multi" ?
                   segments.map((seg, i) => (
                     <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 11, width: "100%" }}>
-                      <input required placeholder="From" value={seg.from} onChange={e => setSegment(i, "from", e.target.value.toUpperCase())} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                      <input required placeholder="To" value={seg.to} onChange={e => setSegment(i, "to", e.target.value.toUpperCase())} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                      <input required type="date" value={seg.depart} onChange={e => setSegment(i, "depart", e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                      <button type="button" onClick={() => removeSegment(i)} style={{ background: "#eee", border: "none", borderRadius: 5, padding: "0 13px", fontWeight: 700, fontSize: "1.1rem", color: "#e81e65" }} disabled={segments.length <= 1}>−</button>
+                      <div style={{position:"relative"}}>
+                        <input required placeholder="From" value={seg.from} onChange={e => setSegment(i, "from", e.target.value.toUpperCase())}
+                          style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                        <button type="button" aria-label="Mic" title="Voice input (AI)" onClick={speechToFields}
+                          style={{ position: "absolute", top: 6, right: 4, background: "none", border: "none", fontSize: "1.32rem", color: "#22a6ee", cursor: "pointer" }}>{listening ? "🎤" : "🎙️"}</button>
+                      </div>
+                      <input required placeholder="To" value={seg.to} onChange={e => setSegment(i, "to", e.target.value.toUpperCase())}
+                        style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                      <input required type="date" value={seg.depart} onChange={e => setSegment(i, "depart", e.target.value)}
+                        style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                      <button type="button" onClick={() => removeSegment(i)} style={{ background: "#eee", border: "none", borderRadius: 5, padding: "0 13px", fontWeight: 700, fontSize: "1.1rem", color: "#ea3199" }} disabled={segments.length <= 1}>−</button>
                     </div>
                   ))
                   :
                   <div style={{ display: "flex", gap: 11, width: "100%", marginBottom: flightType === "return" ? '13px' : '0' }}>
-                    <input required placeholder="From" value={segments[0].from} onChange={e => setSegment(0, "from", e.target.value.toUpperCase())} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                    <input required placeholder="To" value={segments[0].to} onChange={e => setSegment(0, "to", e.target.value.toUpperCase())} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                    <input required type="date" value={segments[0].depart} onChange={e => setSegment(0, "depart", e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
-                    {flightType === "return" && <input required type="date" value={ret} onChange={e => setRet(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />}
+                    <div style={{position:"relative",flex:1}}>
+                      <input required placeholder="From" value={segments[0].from} onChange={e => setSegment(0, "from", e.target.value.toUpperCase())}
+                        style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                      <button type="button" aria-label="Mic" title="Voice input (AI)" onClick={speechToFields}
+                        style={{ position: "absolute", top: 6, right: 4, background: "none", border: "none", fontSize: "1.32rem", color: "#22a6ee", cursor: "pointer" }}>{listening ? "🎤" : "🎙️"}</button>
+                    </div>
+                    <input required placeholder="To" value={segments[0].to} onChange={e => setSegment(0, "to", e.target.value.toUpperCase())}
+                      style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                    <input required type="date" value={segments[0].depart} onChange={e => setSegment(0, "depart", e.target.value)}
+                      style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />
+                    {flightType === "return" && <input required type="date" value={ret} onChange={e => setRet(e.target.value)}
+                      style={{ flex: 1, padding: "12px", borderRadius: 7, border: "1px solid #d2defa" }} />}
                   </div>
                 }
                 {flightType === "multi" &&
-                  <button type="button" onClick={addSegment} style={{ background: "#fbe7fc", color: "#e81e65", padding: "6px 18px", border: "none", borderRadius: 9, fontWeight: 700, fontSize: "1.02rem" }}>+ Add Segment</button>
+                  <button type="button" onClick={addSegment} style={{
+                    background: "#ffe8f6", color: "#ea3199", padding: "5px 15px", border: "none", borderRadius: 8,
+                    fontWeight: 700, fontSize: "1.02rem"
+                  }}>+ Add Segment</button>
                 }
-                <button type="submit" style={{ background: "#e81e65", color: "#fff", fontWeight: 700, padding: "14px 48px", border: "none", borderRadius: 10, fontSize: "1.19rem", marginTop: 8, cursor: "pointer" }}>Search Flights</button>
+                <button type="submit" style={{
+                  background: "#ea3199", color: "#fff", fontWeight: 700, padding: "14px 48px", border: "none", borderRadius: 10, fontSize: "1.19rem", marginTop: 8, cursor: "pointer"
+                }}>Search Flights</button>
               </form>
             </>
           }
-          {/* TODO: Add hotel, car, things forms here same as Flights, reusing your own code/pattern */}
+          {/* TODO: Add hotels, car, things forms and ad/affiliate logic for those (see tab-specific examples above) */}
         </main>
 
-        {/* -------- Deals Grid Feed --------- */}
-        <section style={{ maxWidth: 1190, margin: "0 auto", padding: "15px 0 40px 0" }}>
-          <h2 style={{ textAlign: "center", margin: "12px 0 11px 0", fontWeight: 800, letterSpacing: ".7px", fontSize: "1.58rem" }}>Last Minute <span style={{ color: "#ffe95b", background: "#e81e65", borderRadius: 7, padding: "0 6px" }}>DEALS</span></h2>
+        {/* -------------- Last Minute Deals Feed -------------- */}
+        <section style={{ maxWidth: 1190, margin: "0 auto", padding: "15px 0 42px 0" }}>
+          <h2 style={{
+            textAlign: "center", margin: "12px 0 11px 0", fontWeight: 800, letterSpacing: ".7px", fontSize: "1.58rem"
+          }}>Last Minute <span style={{ color: "#ffe95b", background: "#ea3199", borderRadius: 6, padding: "0 6px" }}>DEALS</span></h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "22px", justifyContent: "center" }}>
-            {DEALS.map((d, i) => (
+            {DEALS.filter(d => d.tab === tab).map((d, i) => (
               <div key={i}
                 style={{
-                  width: 295, background: "#fff", borderRadius: 17, boxShadow: "0 3px 20px #e7e6eb", padding: 0,
+                  width: 300, background: "#fff", borderRadius: 17, boxShadow: "0 3px 20px #e7e6eb", padding: 0,
                   display: "flex", flexDirection: "column", marginBottom: 18, overflow: "hidden"
                 }}>
                 <div style={{ position: "relative" }}>
-                  <img src={d.image} alt={d.title} style={{ width: "100%", height: 173, objectFit: "cover" }} />
+                  <img src={d.image} alt={d.title} style={{ width: "100%", height: 175, objectFit: "cover" }} />
                   <span style={{
                     position: "absolute", top: 15, left: 15,
-                    background: "#e81e65", color: "#fff", fontWeight: 700, padding: "4.5px 13px", borderRadius: 9, letterSpacing: ".5px", fontSize: "0.98rem"
+                    background: "#ea3199", color: "#fff", fontWeight: 700, padding: "5px 13px", borderRadius: 9, letterSpacing: ".5px", fontSize: "1rem"
                   }}>{d.badge}</span>
                   <span style={{
                     position: "absolute", top: 15, right: 15,
-                    background: "#131338dd", color: "#ffe95b", fontWeight: 600, padding: "3px 8px", borderRadius: 8, fontSize: "0.95rem"
+                    background: "#131338c2", color: "#ffe95b", fontWeight: 700, padding: "3px 9px", borderRadius: 8, fontSize: "0.97rem"
                   }}><span role="img" aria-label="timer">⏰</span> {d.expires}</span>
                 </div>
-                <div style={{ padding: "14px 17px 10px 17px", fontSize: "1.08rem", fontWeight: 700 }}>
+                <div style={{ padding: "14px 18px 10px 18px", fontSize: "1.09rem", fontWeight: 700 }}>
                   {d.title}
-                  <div style={{ fontWeight: 500, color: "#444", margin: "7px 0 0 0", fontSize: "1.06rem" }}>{d.desc}</div>
+                  <div style={{ fontWeight: 500, color: "#444", margin: "7px 0 0 0", fontSize: "1.05rem" }}>{d.desc}</div>
                   <a href={d.link} target="_blank" style={{
-                    background: "#e81e65", color: "#fff", fontWeight: 600, padding: "10px 0", display: "block", borderRadius: 7, textAlign: "center", margin: "13px 0 0 0", fontSize: "1.07rem", textDecoration: "none"
+                    background: "#ea3199", color: "#fff", fontWeight: 600, padding: "10px 0", display: "block", borderRadius: 7,
+                    textAlign: "center", margin: "13px 0 0 0", fontSize: "1.08rem", textDecoration: "none"
                   }}>Book Deal</a>
                 </div>
               </div>
@@ -272,16 +377,21 @@ export default function Home() {
           </div>
         </section>
 
-        {/* -------- Affiliate Buttons Row --------- */}
-        <div style={{ display: "flex", gap: 22, flexWrap: "wrap", justifyContent: "center", maxWidth: 930, margin: "8px auto 0" }}>
-          {AFFILIATES.map(a =>
+        {/* ----------- Affiliate Promo Buttons Per Tab ----------- */}
+        <div style={{
+          display: "flex", gap: 22, flexWrap: "wrap", justifyContent: "center", maxWidth: 930, margin: "8px auto 0"
+        }}>
+          {TAB_AFFILIATES[tab].map(a =>
             <a key={a.name} href={a.url} target="_blank"
-              style={{ background: a.color, color: a.fontColor || "#fff", padding: "14px 26px", borderRadius: 9, textDecoration: "none", fontWeight: 700, fontSize: "1.07rem", marginBottom: 12, boxShadow: "0 2px 8px #e5eefc" }}
+              style={{
+                background: a.color, color: a.fontColor || "#fff", padding: "14px 26px", borderRadius: 9, textDecoration: "none",
+                fontWeight: 700, fontSize: "1.07rem", marginBottom: 12, boxShadow: "0 2px 8px #e5eefc"
+              }}
             >{a.name}</a>
           )}
         </div>
-        {/* Footer */}
-        <footer style={{ marginTop: 34, textAlign: "center", padding: "32px 8px 18px 8px", fontSize: "1.05rem", color: "#888", background: "#fff", borderTop: "1px solid #ebebeb" }}>&copy; {new Date().getFullYear()} Travel in UK Ltd. All rights reserved.</footer>
+
+        <footer style={{ marginTop: 36, textAlign: "center", padding: "32px 8px 18px 8px", fontSize: "1.05rem", color: "#888", background: "#fff", borderTop: "1px solid #ebebeb" }}>&copy; {new Date().getFullYear()} Travel in UK Ltd. All rights reserved.</footer>
       </div>
     </>
   );
