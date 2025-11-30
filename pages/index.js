@@ -1,3 +1,8 @@
 export default function Home() {
-  return <h1>TravelDistant</h1>;
+  return (
+    <main style={{ fontFamily: "sans-serif", padding: "2rem" }}>
+      <h1>🌍 Welcome to TravelDistant!</h1>
+      <p>Your last-minute travel deals start here.</p>
+    </main>
+  );
 }
